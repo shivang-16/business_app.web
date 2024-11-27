@@ -2,12 +2,15 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { verifyUser } from "../actions/userActions";
 import toast from "react-hot-toast";
+import { useAppDispatch } from "../redux/hooks";
+import { setUserData } from "../redux/slices/userSlice";
 
 export const OTPModal = ({ email, onClose }: { email: string, onClose: () => void }) => {
     const [otp, setOtp] = useState('');
     const [isVerifying, setIsVerifying] = useState(false);
   
     const navigate = useNavigate();
+    const dispatch = useAppDispatch()
   
     const verifyOtp = async () => {
       setIsVerifying(true);
@@ -19,6 +22,7 @@ export const OTPModal = ({ email, onClose }: { email: string, onClose: () => voi
         if (data.success) {
           toast.success("OTP Verified");
           onClose(); 
+          dispatch(setUserData(data.user))
           navigate("/", { replace: true });
         } else {
           toast.error("Invalid OTP");

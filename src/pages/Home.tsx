@@ -7,7 +7,7 @@ import AddOrderModal from '../components/AddProductModal';
 import debounce from 'lodash.debounce';
 import { orderData } from '../redux/slices/orderSlice';
 import toast from 'react-hot-toast';
-import Loader from '../components/Loader'; // Import the Loader component
+import Loader from '../components/Loader'; 
 
 interface Order {
   _id: string;

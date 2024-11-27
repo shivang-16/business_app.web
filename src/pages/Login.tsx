@@ -6,6 +6,7 @@ import { loginUser } from "../actions/userActions";
 import { setUserData } from "../redux/slices/userSlice";
 import { Link } from "react-router-dom";
 import GoogleLoginButton from "../components/GoogleLoginButton"; // Assuming this is a separate component for Google login
+import { getOrders } from "../actions/orderActions";
 
 
 const Login = () => {
@@ -25,13 +26,13 @@ const Login = () => {
     try {
       const response = await loginUser(data);
 
-      if (response.ok) {
-        dispatch(setUserData(response.user));
-        toast.success(response.message);
+      if (response.data.success) {
+        dispatch(setUserData(response.data.user));
+        toast.success(response.data.message);
         navigate("/");
       } else {
-        toast.error("Login Failed");
-      }
+        toast.error(response.data.error || "Signup Failed");
+    }
     } catch (error: any) {
       console.log(error);
       toast.error("Login Failed");
