@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import { useAppDispatch, useAppSelector } from '../redux/hooks';
-import { getOrders, editOrder, createOrder, deleteOrder, getTotalOrderValue } from '../actions/orderActions'; // API methods
+import { getOrders, editOrder, createOrder, deleteOrder, getTotalOrderValue } from '../actions/orderActions';
 import EditOrderModal from '../components/EditProduct';
-import AddOrderModal from '../components/AddProductModal'; 
+import AddOrderModal from '../components/AddProductModal';
 import debounce from 'lodash.debounce';
 import { orderData } from '../redux/slices/orderSlice';
 import toast from 'react-hot-toast';
+import Loader from '../components/Loader'; // Import the Loader component
 
 interface Order {
   _id: string;
@@ -19,7 +20,7 @@ interface Order {
 
 const Home: React.FC = () => {
   const user = useAppSelector((state) => state.user.user);
-  const dispatch = useAppDispatch()
+  const dispatch = useAppDispatch();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -30,23 +31,43 @@ const Home: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [showMyProducts, setShowMyProducts] = useState(false);
   const [totalOrderValue, setTotalOrderValue] = useState<number>(0);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false); // Delete confirmation modal
-  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null); // Store order to be deleted
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+
+  // Loading states for async operations
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [loadingTotalOrderValue, setLoadingTotalOrderValue] = useState(false);
+  const [loadingUpdate, setLoadingUpdate] = useState(false);
+  const [loadingDelete, setLoadingDelete] = useState(false);
 
   const fetchOrders = async (page: number = 1, search: string = '', userFilter: boolean = false) => {
-    const response = await getOrders(page, 10, search, userFilter);
-    if (response && response.data) {
-      setOrders(response.data.data);
-      dispatch(orderData(response.data.data));
-      setCurrentPage(response.data.pagination.currentPage);
-      setTotalPages(response.data.pagination.totalPages);
+    setLoadingOrders(true);
+    try {
+      const response = await getOrders(page, 10, search, userFilter);
+      if (response && response.data) {
+        setOrders(response.data.data);
+        dispatch(orderData(response.data.data));
+        setCurrentPage(response.data.pagination.currentPage);
+        setTotalPages(response.data.pagination.totalPages);
+      }
+    } catch (error) {
+      toast.error("Error fetching orders");
+    } finally {
+      setLoadingOrders(false);
     }
   };
 
   const fetchTotalOrderValue = async () => {
-    const response = await getTotalOrderValue();
-    if (response && response.data) {
-      setTotalOrderValue(response.data.totalOrderValue);
+    setLoadingTotalOrderValue(true);
+    try {
+      const response = await getTotalOrderValue();
+      if (response && response.data) {
+        setTotalOrderValue(response.data.totalOrderValue);
+      }
+    } catch (error) {
+      toast.error("Error fetching total order value");
+    } finally {
+      setLoadingTotalOrderValue(false);
     }
   };
 
@@ -76,7 +97,6 @@ const Home: React.FC = () => {
     fetchOrders(1, searchQuery, !showMyProducts); 
   };
 
-  // Open Edit Modal
   const handleEdit = (order: Order) => {
     setSelectedOrder(order);
     setIsEditModalOpen(true);
@@ -87,17 +107,18 @@ const Home: React.FC = () => {
     setIsEditModalOpen(false);
   };
 
-  // Update Order
   const handleUpdateOrder = async (updatedOrder: Order) => {
     if (selectedOrder) {
+      setLoadingUpdate(true);
       const res = await editOrder(selectedOrder._id, updatedOrder);
-      if(res.data.success) {
+      if (res.data.success) {
         toast.success(res.data.message || "Order updated");
-        fetchOrders(currentPage, searchQuery, showMyProducts); 
+        fetchOrders(currentPage, searchQuery, showMyProducts);
         handleCloseEditModal();
       } else {
         toast.error(res.data.error || "Error updating order");
       }
+      setLoadingUpdate(false);
     }
   };
 
@@ -110,9 +131,11 @@ const Home: React.FC = () => {
   };
 
   const handleAddOrder = async (newOrder: Order) => {
+    setLoadingUpdate(true);
     await createOrder(newOrder);
     fetchOrders(currentPage, searchQuery, showMyProducts);
     handleCloseAddModal();
+    setLoadingUpdate(false);
   };
 
   const handleDelete = (order: Order) => {
@@ -122,6 +145,7 @@ const Home: React.FC = () => {
 
   const confirmDelete = async () => {
     if (orderToDelete) {
+      setLoadingDelete(true);
       const res = await deleteOrder(orderToDelete._id);
       if (res.data.success) {
         toast.success(res.data.message || "Order deleted");
@@ -130,6 +154,7 @@ const Home: React.FC = () => {
       } else {
         toast.error(res.data.error || "Error deleting order");
       }
+      setLoadingDelete(false);
     }
   };
 
@@ -185,48 +210,50 @@ const Home: React.FC = () => {
           </div>
         </div>
 
-        {/* Order Table */}
-        <div className="overflow-x-auto shadow border rounded-lg">
-          <table className="table-auto w-full border-collapse text-left">
-            <thead className="bg-gray-100 text-gray-700">
-              <tr>
-                <th className="px-4 py-2">Product</th>
-                <th className="px-4 py-2">Customer Name</th>
-                <th className="px-4 py-2">Customer Email</th>
-                <th className="px-4 py-2">Quantity</th>
-                <th className="px-4 py-2">Order Value</th>
-                <th className="px-4 py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <tr key={order._id} className="hover:bg-gray-50">
-                  <td className="border px-4 py-2">{order.product}</td>
-                  <td className="border px-4 py-2">{order.customer_name}</td>
-                  <td className="border px-4 py-2">{order.customer_email}</td>
-                  <td className="border px-4 py-2">{order.quantity}</td>
-                  <td className="border px-4 py-2">${order.order_value.toFixed(2)}</td>
-                  <td className="border px-4 py-2">
-                    <button
-                      onClick={() => handleEdit(order)}
-                      className="text-blue-500 hover:underline"
-                    >
-                      ✏️ Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(order)}
-                      className="text-red-500 hover:underline ml-2"
-                    >
-                      🗑️ Delete
-                    </button>
-                  </td>
+        {/* Show Loader while fetching orders */}
+        {loadingOrders ? (
+          <Loader />
+        ) : (
+          <div className="overflow-x-auto shadow border rounded-lg">
+            <table className="table-auto w-full border-collapse text-left">
+              <thead className="bg-gray-100 text-gray-700">
+                <tr>
+                  <th className="px-4 py-2">Product</th>
+                  <th className="px-4 py-2">Customer Name</th>
+                  <th className="px-4 py-2">Customer Email</th>
+                  <th className="px-4 py-2">Quantity</th>
+                  <th className="px-4 py-2">Order Value</th>
+                  <th className="px-4 py-2">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-       
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <tr key={order._id} className="hover:bg-gray-50">
+                    <td className="border px-4 py-2">{order.product}</td>
+                    <td className="border px-4 py-2">{order.customer_name}</td>
+                    <td className="border px-4 py-2">{order.customer_email}</td>
+                    <td className="border px-4 py-2">{order.quantity}</td>
+                    <td className="border px-4 py-2">${order.order_value.toFixed(2)}</td>
+                    <td className="border px-4 py-2">
+                      <button
+                        onClick={() => handleEdit(order)}
+                        className="text-blue-500 hover:underline"
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(order)}
+                        className="text-red-500 hover:underline ml-2"
+                      >
+                        🗑️ Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Pagination Controls */}
         <div className="mt-4 flex justify-between items-center">
