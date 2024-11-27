@@ -19,7 +19,7 @@ export const OTPModal = ({ email, onClose }: { email: string, onClose: () => voi
         if (data.success) {
           toast.success("OTP Verified");
           onClose(); 
-          navigate("/");
+          navigate("/", { replace: true });
         } else {
           toast.error("Invalid OTP");
         }

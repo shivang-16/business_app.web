@@ -28,7 +28,7 @@ const GoogleLoginButton = () => {
 
         if (res.data.success) {
           navigate("/");
-          toast.success(res.message);
+          toast.success(res.data.message || "Login Success");
         } else {
           toast.error('Google login failed!');
         }
